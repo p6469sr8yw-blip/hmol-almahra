@@ -1,0 +1,30 @@
+<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>كشف السيارة</title>
+<style>
+body{font-family:Tahoma,Arial;margin:0;background:#f3f5f2;color:#173b36}.app{max-width:1050px;margin:auto;padding:12px}.top,.card{background:#fff;border-radius:16px;padding:15px;margin-bottom:12px;box-shadow:0 3px 14px #0001}.top{background:#173b36;color:#fff}h1,h2{margin:0 0 10px}.grid,.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}label{font-size:13px;font-weight:bold;display:block;margin-bottom:5px}input{width:100%;box-sizing:border-box;padding:10px;border:1px solid #c8d3cf;border-radius:9px;font-size:16px}button{border:0;border-radius:9px;padding:10px 14px;background:#173b36;color:#fff;font-weight:bold;margin:4px;cursor:pointer}.danger{background:#b33a32}.summary{margin-bottom:12px}.box{background:#eaf3f0;padding:13px;text-align:center;border-radius:12px}.box b{display:block;font-size:21px;margin-top:4px}.person{border:1px solid #d4dfdb;border-radius:13px;margin-top:12px;overflow:hidden}.head{background:#eaf3f0;padding:12px;display:flex;gap:12px;align-items:end;justify-content:space-between}.name{flex:1;max-width:350px}table{width:100%;border-collapse:collapse}th{background:#75cfc3;padding:9px}td{border:1px solid #dce5e2;padding:5px;text-align:center}td input{text-align:center;border:0;background:transparent}.actions{padding-top:10px}.empty{text-align:center;padding:25px;color:#687873}@media(max-width:700px){.grid{grid-template-columns:1fr 1fr}.summary{grid-template-columns:1fr 1fr}.head{display:block}.name{max-width:none}th,td{font-size:12px}}@media(max-width:430px){.grid{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}}
+</style>
+<div class="app"><div class="top"><h1>🚚 كشف السيارة</h1>حساب أجور النقل حسب وزن الكراتين</div>
+<div class="card"><h2>بيانات الرحلة</h2><div class="grid">
+<div><label>التاريخ</label><input id="date" type="date"></div><div><label>اسم / رقم السيارة</label><input id="car" placeholder="مثال: سيارة 12"></div><div><label>سعر أجرة الكيلو</label><input id="rate" type="number" min="0" placeholder="مثال: 100"></div><div><label>ملاحظة</label><input id="note"></div></div>
+<div class="actions"><button onclick="addPerson()">+ إضافة شخص</button><button onclick="save()">حفظ الكشف</button><button onclick="print()">طباعة / PDF</button><button class="danger" onclick="newTrip()">كشف جديد</button></div></div>
+<div class="summary"><div class="box">الأشخاص<b id="people">0</b></div><div class="box">الكراتين<b id="boxes">0</b></div><div class="box">الوزن<b id="weight">0 كجم</b></div><div class="box">أجرة السيارة<b id="money">0</b></div></div>
+<div id="list" class="card"><div class="empty">اضغط «إضافة شخص» للبدء.</div></div></div>
+<script>
+let s={date:new Date().toISOString().slice(0,10),car:"",rate:"",note:"",people:[]};
+const $=x=>document.getElementById(x); const f=n=>Number(n||0).toLocaleString("en-US",{maximumFractionDigits:2});
+function load(){let x=localStorage.getItem("qatTrip");if(x)try{s=JSON.parse(x)}catch(e){}$("date").value=s.date;$("car").value=s.car;$("rate").value=s.rate;$("note").value=s.note;render()}
+function sync(){s.date=$("date").value;s.car=$("car").value;s.rate=$("rate").value;s.note=$("note").value;localStorage.setItem("qatTrip",JSON.stringify(s));renderSum()}
+["date","car","rate","note"].forEach(id=>$(id).addEventListener("input",sync));
+function addPerson(){s.people.push({name:"",boxes:[{place:"",weight:""}]});render();save(false)}
+function addBox(i){s.people[i].boxes.push({place:"",weight:""});render();save(false)}
+function delPerson(i){if(confirm("حذف الشخص؟")){s.people.splice(i,1);render();save(false)}}
+function delBox(i,j){if(s.people[i].boxes.length>1)s.people[i].boxes.splice(j,1);else s.people[i].boxes[0]={place:"",weight:""};render();save(false)}
+function setP(i,v){s.people[i].name=v;save(false)} function setB(i,j,k,v){s.people[i].boxes[j][k]=v;save(false)}
+function pw(p){return p.boxes.reduce((a,b)=>a+(+b.weight||0),0)}
+function renderSum(){let b=0,w=0;s.people.forEach(p=>{b+=p.boxes.length;w+=pw(p)});$("people").textContent=s.people.length;$("boxes").textContent=b;$("weight").textContent=f(w)+" كجم";$("money").textContent=f(w*(+s.rate||0))}
+function esc(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;")}
+function render(){if(!s.people.length){$("list").innerHTML='<div class="empty">اضغط «إضافة شخص» للبدء.</div>';renderSum();return}
+$("list").innerHTML=s.people.map((p,i)=>{let w=pw(p),m=w*(+s.rate||0);return `<div class="person"><div class="head"><div class="name"><label>اسم الشخص</label><input value="${esc(p.name)}" oninput="setP(${i},this.value)" placeholder="اسم صاحب الكراتين"></div><div><b>الوزن: ${f(w)} كجم</b><br>الأجرة: ${f(m)}</div><button class="danger" onclick="delPerson(${i})">حذف</button></div><table><thead><tr><th>الكرتون</th><th>المكان</th><th>الوزن مع القات (كجم)</th><th>أجرة الكرتون</th><th></th></tr></thead><tbody>${p.boxes.map((b,j)=>`<tr><td>${j+1}</td><td><input value="${esc(b.place)}" oninput="setB(${i},${j},'place',this.value)" placeholder="المكان"></td><td><input type="number" min="0" step=".01" value="${esc(b.weight)}" oninput="setB(${i},${j},'weight',this.value)" placeholder="0"></td><td>${f((+b.weight||0)*(+s.rate||0))}</td><td><button class="danger" onclick="delBox(${i},${j})">×</button></td></tr>`).join("")}</tbody></table><div class="actions"><button onclick="addBox(${i})">+ إضافة كرتون</button></div></div>`}).join("");renderSum()}
+function save(show=true){sync();if(show)alert("تم حفظ الكشف على الجهاز.")}
+function newTrip(){if(confirm("مسح الكشف الحالي وبدء كشف جديد؟")){localStorage.removeItem("qatTrip");s={date:new Date().toISOString().slice(0,10),car:"",rate:"",note:"",people:[]};load()}}
+load();
+</script>
