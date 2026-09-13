@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#6b4b2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="كشف السيارة">
+<link rel="manifest" href="manifest.webmanifest">
+<title>كشف السيارة</title>
+<style>
+*{box-sizing:border-box} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,Arial,sans-serif;background:#f5f1ea;color:#222}
+.app{max-width:1100px;margin:auto;padding:14px}
+.card{background:#fff;border:1px solid #c9b99f;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px #0000000d}
+h1{font-size:25px;text-align:center;margin:4px 0 12px;color:#4b351f}
+h2{font-size:18px;margin:0 0 10px;color:#4b351f}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+label{font-size:13px;font-weight:700}
+input,button,select{font:inherit}
+input,select{width:100%;padding:10px;border:1px solid #bcae99;border-radius:8px;background:#fff;margin-top:4px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+button{border:0;border-radius:8px;padding:10px 14px;background:#6b4b2a;color:#fff;font-weight:700}
+button.secondary{background:#e9dfd1;color:#3f2d1c}.danger{background:#a63d32!important;color:#fff!important}
+.day{border:1px solid #b9a98f;margin-top:14px;border-radius:10px;overflow:hidden}
+.dayhead{background:#eee5d7;padding:10px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.dayhead strong{font-size:16px}.dayhead input{max-width:190px;margin:0}
+.tablewrap{overflow:auto}
+table{border-collapse:collapse;width:100%;min-width:900px}
+th,td{border:1px solid #a99982;padding:6px;text-align:center;font-size:13px}
+th{background:#f1eadf}.num{width:45px}.qty{width:90px}.price{width:90px}.total{font-weight:700}
+tfoot td{font-weight:800;background:#f7f2eb}
+.daytotal{padding:8px;background:#faf7f2;font-weight:800}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:#f2e9dc;border:1px solid #c7b79f;border-radius:10px;padding:12px;text-align:center}
+.stat b{display:block;font-size:20px;margin-top:4px}
+.note{width:100%;min-height:70px;padding:10px;border:1px solid #bcae99;border-radius:8px}
+@media(max-width:700px){.grid{grid-template-columns:1fr 1fr}.summary{grid-template-columns:1fr}.app{padding:8px}h1{font-size:22px}}
+@media print{body{background:#fff}.actions{display:none!important}.card{box-shadow:none;border:0}.app{max-width:none}.day{break-inside:avoid}input{border:0;padding:2px}.dayhead input{max-width:none} }
+</style>
+</head>
+<body>
+<div class="app">
+<div class="card">
+<h1>كشف إيرادات السيارة</h1>
+<div class="grid">
+<label>اسم السيارة / الرقم<input id="vehicle" placeholder="مثال: 1234"></label>
+<label>اسم السائق<input id="driver" placeholder="اسم السائق"></label>
+<label>سعر الكيلو<input id="defaultPrice" type="number" step="0.01" value="865"></label>
+<label>بداية الكشف<input id="fromDate" type="date"></label>
+</div>
+<div class="actions">
+<button onclick="addDay()">+ إضافة يوم</button>
+<button class="secondary" onclick="save()">حفظ الكشف</button>
+<button class="secondary" onclick="window.print()">طباعة / PDF</button>
+<button class="danger" onclick="newSheet()">كشف جديد</button>
+</div>
+</div>
+
+<div id="days"></div>
+
+<div class="card">
+<h2>الإجمالي الكلي</h2>
+<div class="summary">
+<div class="stat">إجمالي العدد / الوزن<b id="grandQty">0</b></div>
+<div class="stat">إجمالي المبلغ<b id="grandTotal">0</b></div>
+<div class="stat">عدد الأيام<b id="grandDays">0</b></div>
+</div>
+<label style="display:block;margin-top:12px">ملاحظات<textarea id="note" class="note"></textarea></label>
+</div>
+</div>
+
+<script>
+let data={vehicle:"",driver:"",defaultPrice:865,fromDate:"",note:"",days:[]};
+
+function money(n){return Number(n||0).toLocaleString('en-US',{maximumFractionDigits:2})}
+function load(){
+ try{let x=JSON.parse(localStorage.getItem('kashfSayaraV2')); if(x)data=x}catch(e){}
+ vehicle.value=data.vehicle||"";driver.value=data.driver||"";defaultPrice.value=data.defaultPrice||865;fromDate.value=data.fromDate||"";note.value=data.note||"";
+ render();
+}
+function syncHead(){data.vehicle=vehicle.value;data.driver=driver.value;data.defaultPrice=Number(defaultPrice.value||0);data.fromDate=fromDate.value;data.note=note.value}
+function addDay(date=""){
+ syncHead();
+ const d=date || new Date().toISOString().slice(0,10);
+ data.days.push({date:d,rows:[]}); render();
+}
+function addRow(di){
+ data.days[di].rows.push({unit:"كجم",qty:"",price:data.defaultPrice,place:"",seller:"",branch:""});
+ render();
+}
+function delRow(di,ri){data.days[di].rows.splice(ri,1);render()}
+function delDay(di){if(confirm("حذف هذا اليوم؟")){data.days.splice(di,1);render()}}
+function setVal(di,ri,key,val){data.days[di].rows[ri][key]=val;renderTotalsOnly()}
+function render(){
+ const box=document.getElementById('days'); box.innerHTML="";
+ data.days.forEach((day,di)=>{
+ let el=document.createElement('div');el.className="day card";
+ el.innerHTML=`<div class="dayhead"><strong>كشف يوم ${di+1}</strong><input type="date" value="${day.date}" onchange="data.days[${di}].date=this.value;render()"><div class="actions" style="margin:0"><button onclick="addRow(${di})">+ إضافة سطر</button><button class="danger" onclick="delDay(${di})">حذف اليوم</button></div></div>`;
+ let wrap=document.createElement('div');wrap.className="tablewrap";
+ let table=document.createElement('table');
+ table.innerHTML=`<thead><tr><th class="num">الرقم</th><th>اليوم / التاريخ</th><th>الوحدة</th><th class="qty">العدد / الوزن</th><th class="price">السعر</th><th>الإجمالي</th><th>مكان البيع</th><th>البائع</th><th>الفرع</th><th>حذف</th></tr></thead><tbody></tbody><tfoot><tr><td colspan="3">إجمالي اليوم</td><td id="q${di}">0</td><td></td><td id="t${di}">0</td><td colspan="4"></td></tr></tfoot>`;
+ let tb=table.querySelector('tbody');
+ day.rows.forEach((r,ri)=>{
+ let tr=document.createElement('tr');
+ tr.innerHTML=`<td>${ri+1}</td>
+ <td>${day.date||""}</td>
+ <td><input value="${r.unit||""}" onchange="setVal(${di},${ri},'unit',this.value)"></td>
+ <td><input type="number" step="0.01" value="${r.qty}" onchange="setVal(${di},${ri},'qty',this.value)"></td>
+ <td><input type="number" step="0.01" value="${r.price}" onchange="setVal(${di},${ri},'price',this.value)"></td>
+ <td class="total">${money(Number(r.qty||0)*Number(r.price||0))}</td>
+ <td><input value="${r.place||""}" onchange="setVal(${di},${ri},'place',this.value)"></td>
+ <td><input value="${r.seller||""}" onchange="setVal(${di},${ri},'seller',this.value)"></td>
+ <td><input value="${r.branch||""}" onchange="setVal(${di},${ri},'branch',this.value)"></td>
+ <td><button class="danger" onclick="delRow(${di},${ri})">×</button></td>`;
+ tb.appendChild(tr);
+ });
+ wrap.appendChild(table);el.appendChild(wrap);box.appendChild(el);
+ });
+ renderTotalsOnly();
+}
+function renderTotalsOnly(){
+ let gq=0,gt=0;
+ data.days.forEach((d,di)=>{
+ let q=0,t=0;d.rows.forEach(r=>{q+=Number(r.qty||0);t+=Number(r.qty||0)*Number(r.price||0)});
+ let qe=document.getElementById('q'+di),te=document.getElementById('t'+di);if(qe)qe.textContent=money(q);if(te)te.textContent=money(t);gq+=q;gt+=t;
+ });
+ grandQty.textContent=money(gq);grandTotal.textContent=money(gt);grandDays.textContent=data.days.length;
+}
+function save(){syncHead();localStorage.setItem('kashfSayaraV2',JSON.stringify(data));alert("تم حفظ الكشف على هذا الآيفون")}
+function newSheet(){if(confirm("بدء كشف جديد؟ سيتم مسح الكشف الحالي من هذا الجهاز.")){data={vehicle:"",driver:"",defaultPrice:865,fromDate:"",note:"",days:[]};localStorage.removeItem('kashfSayaraV2');load()}}
+vehicle.addEventListener('input',syncHead);driver.addEventListener('input',syncHead);defaultPrice.addEventListener('input',()=>{syncHead()});fromDate.addEventListener('input',syncHead);note.addEventListener('input',syncHead);
+load(); if(!data.days.length)addDay();
+</script>
+</body>
+</html>
